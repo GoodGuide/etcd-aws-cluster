@@ -1,4 +1,5 @@
-#! /bin/bash
+#!/bin/bash
+
 pkg="etcd-aws-cluster"
 version="0.5"
 etcd_peers_file_path="/etc/sysconfig/etcd-peers"
@@ -64,7 +65,7 @@ echo "client_client_scheme=$etcd_client_scheme"
 etcd_peer_scheme=${ETCD_PEER_SCHEME:-http}
 echo "peer_peer_scheme=$etcd_peer_scheme"
 
-etcd_peer_urls=$(aws ec2 describe-instances --instance-ids $(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-name "$asg_name" | jq '.AutoScalingGroups[0].Instances[] | select(.LifecycleState  == "InService") | .InstanceId' | xargs) | jq -r ".Reservations[].Instances | map(\"$etcd_client_scheme://\" + .NetworkInterfaces[].PrivateIpAddress + \":$client_port\")[]")
+etcd_peer_urls=$(aws ec2 describe-instances --instance-ids $(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-name "$asg_name" | jq '.AutoScalingGroups[0].Instances[] | select(.LifecycleState  == "InService") | .InstanceId' | xargs) | jq -r ".Reservations[].Instances | map(\"${etcd_client_scheme}://\" + .NetworkInterfaces[].PrivateIpAddress + \":${client_port}\")[]")
 if [[ ! $etcd_peer_urls ]]; then
     echo "$pkg: unable to find members of auto scaling group"
     exit 5
@@ -170,6 +171,7 @@ ETCD_INITIAL_CLUSTER_STATE=existing
 ETCD_NAME=$ec2_instance_id
 ETCD_INITIAL_CLUSTER="$etcd_initial_cluster"
 ETCD_PROXY=$etcd_proxy
+ETCD_INITIAL_ADVERTISE_PEER_URLS=http://${ec2_instance_ip}:${server_port}
 EOF
 
 # otherwise I was already listed as a member so assume that this is a new cluster
@@ -188,6 +190,7 @@ else
 ETCD_INITIAL_CLUSTER_STATE=new
 ETCD_NAME=$ec2_instance_id
 ETCD_INITIAL_CLUSTER="$etcd_initial_cluster"
+ETCD_INITIAL_ADVERTISE_PEER_URLS=http://${ec2_instance_ip}:${server_port}
 EOF
 fi
 
